@@ -1,0 +1,50 @@
+[
+  {
+    "jobber_quote_id": "57649446",
+    "jt_job_id": "22PVxgFHbqdU",
+    "cost_type": null,
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "57674580",
+    "jt_job_id": "22PW2eZiNRyH",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "57617192",
+    "jt_job_id": "22PW2iqdJsnb",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "57759185",
+    "jt_job_id": "22PW2nyNmafs",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "57275516",
+    "jt_job_id": "22PW2reGDbX9",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "57276465",
+    "jt_job_id": "22PW2tHMMFez",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "54929934",
+    "jt_job_id": "22PW2u4ZjGVJ",
+    "cost_type": "Labor",
+    "skip_existing": true
+  },
+  {
+    "jobber_quote_id": "53215077",
+    "jt_job_id": "22PW2vXVvbKL",
+    "cost_type": "Labor",
+    "skip_existing": true
+  }
+]
