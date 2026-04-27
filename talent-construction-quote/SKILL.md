@@ -79,33 +79,71 @@ Pergunte exatamente uma coisa por vez. Não agrupe perguntas. Avance só quando 
 ### Sequência obrigatória
 
 1. **Nome do cliente**
-2. **Pesquisar cliente no JobTread** (OBRIGATÓRIO, antes de pedir telefone/email/endereço)
+2. **Telefone**
+3. **Email**
+4. **Pesquisar cliente no JobTread por nome OR telefone OR email** (OBRIGATÓRIO, antes de cadastrar)
 
-   Após receber o nome, **sempre** buscar matches no JobTread antes de cadastrar — evita duplicar accounts. Usar busca por substring (case-insensitive) sobre nome e sobrenome:
+   Antes de criar qualquer account novo, **sempre** buscar matches por **três campos** — nome, telefone e email. Isso evita duplicar clientes que já existem com nome escrito diferente, ou que cadastraram só telefone/email.
+
+   **Atalho:** se o usuário disser logo de cara que o cliente já está no JobTread e fornecer o `account_id` (ex: "é esse id 22PWA..."), buscar direto pelo ID e ir para confirmação. Não precisa coletar telefone/email/endereço.
+
+   **Implementação:** uma única query traz accounts + contatos com customFieldValues, depois filtrar localmente.
 
    ```python
+   PHONE_FIELD = "22PTSCqdgBQF"
+   EMAIL_FIELD = "22PTSCqdTUsJ"
+   import re
+
+   def normalize_phone(p):
+       digits = re.sub(r"\D", "", p or "")
+       return digits[-10:] if len(digits) >= 10 else digits
+
+   def first_n_chars_of_email(e):
+       return (e or "").lower().strip()
+
    data = client.pave({'organization': {'$': {'id': JT_ORG_ID},
        'accounts': {'$': {'size': 100},
-           'nodes': {'id': {}, 'name': {}},
+           'nodes': {
+               'id': {}, 'name': {},
+               'contacts': {'$': {'size': 20},
+                   'nodes': {'id': {}, 'name': {}, 'customFieldValues': {}}
+               }
+           },
            'nextPage': {}
        }
    }})
-   terms = [t.lower() for t in NOME_DO_CLIENTE.split() if len(t) > 2]
-   matches = [a for a in data['organization']['accounts']['nodes']
-              if any(t in a['name'].lower() for t in terms)]
+
+   name_terms = [t.lower() for t in NOME_DO_CLIENTE.split() if len(t) > 2]
+   phone_norm = normalize_phone(TELEFONE)
+   email_norm = first_n_chars_of_email(EMAIL)
+
+   matches = []
+   for a in data['organization']['accounts']['nodes']:
+       reasons = []
+       if any(t in a['name'].lower() for t in name_terms):
+           reasons.append("name")
+       for c in a.get('contacts', {}).get('nodes', []):
+           cfv = c.get('customFieldValues') or {}
+           if phone_norm and normalize_phone(cfv.get(PHONE_FIELD, '')) == phone_norm:
+               reasons.append("phone")
+           if email_norm and email_norm == (cfv.get(EMAIL_FIELD, '') or '').lower().strip():
+               reasons.append("email")
+       if reasons:
+           matches.append({"account": a, "matched_on": list(set(reasons))})
    ```
 
    **Importante:** se houver paginação (`nextPage` retornado), continuar buscando até cobrir todos os accounts.
 
-   Apresentar matches ao usuário para confirmação. Para cada match candidato, buscar e mostrar `name`, `locations.nodes` (endereço) e `contacts.nodes` (telefone/email) para o usuário comparar.
+   **Apresentação ao usuário:**
+   - Listar todos os matches encontrados, mostrando para cada um: `name`, `account_id`, `matched_on` (em quais campos bateu), `locations` e `contacts` com phone/email.
+   - **Sempre confirmar com o usuário** antes de prosseguir, mesmo se o match parecer óbvio. Frase padrão: *"Encontrei N possível(is) match(es) — é algum desses ou é cliente novo?"*
 
-   - **Se match confirmado:** guardar `account_id`, `location_id`, `contact_id` e **pular** os passos 3–5 (telefone/email/endereço). Ir direto para o passo 6.
-   - **Se nenhum match** ou usuário disser que é cliente novo: continuar com passos 3–5.
-   - **Se o usuário fornecer um account ID diretamente** (ex: "é esse id 22PWA..."): buscar pelo ID e confirmar nome/endereço, pular para passo 6.
+   **Decisões:**
+   - **Se match confirmado:** guardar `account_id`, `location_id`, `contact_id` da escolha do usuário. Pular o passo 5 (endereço) se for usar location existente.
+   - **Se nenhum match** ou usuário disser que é cliente novo: continuar com passo 5.
+   - **Se múltiplas locations** no account existente: perguntar qual usar (ou criar nova).
 
-3. **Telefone** (pular se cliente já existe)
-4. **Email** (pular se cliente já existe)
-5. **Endereço da obra** (rua, cidade, estado, zip — pular se cliente já existe e usar a location existente)
+5. **Endereço da obra** (rua, cidade, estado, zip — pular se cliente existe e for usar location existente)
 6. **Tipo** — mostrar como lista numerada:
    ```
    1. Commercial
