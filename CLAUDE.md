@@ -3,6 +3,29 @@
 
 ---
 
+## 0. Skill ativa neste projeto — talent-construction-quote
+
+**SEMPRE use a skill `talent-construction-quote` para qualquer pedido envolvendo:**
+
+- Criar orçamento, quote, estimate, proposta para cliente
+- Cadastrar novo job no JobTread
+- Precificar serviço da Talent Construction
+- Transcrever orçamento externo (ChatGPT, planilha, PDF) para o JobTread
+
+A skill está instalada localmente em `~/.claude/skills/talent-construction-quote/` e o source está em `talent-construction-quote/` deste repo. **Não tente criar accounts/locations/jobs no JobTread manualmente** — invocar a skill via `Skill(skill="talent-construction-quote")` para ter:
+
+- Sync automático do repo (FASE 0)
+- Pesquisa do cliente por nome/telefone/email antes de cadastrar (FASE 1) — evita duplicatas
+- Preview em markdown antes de criar (FASE 2)
+- Confirmação explícita antes de operações destrutivas
+- Registro de aprendizados + push automático ao final (FASE 4)
+
+Trigger phrases que ativam a skill: `cria/crie/criar um orçamento`, `quote`, `estimate`, `proposta`, `novo job no JobTread`, `manda pro JobTread`, `novo cliente`, `transcreve esse orçamento`, etc.
+
+**Regra:** Se o usuário pedir qualquer coisa relacionada a orçamento da Talent neste diretório e a skill não estiver carregada, invoque-a imediatamente em vez de improvisar.
+
+---
+
 ## 1. Sobre o Projeto
 
 Este é o sistema de migração de dados da **Talent General Services Inc** (CGC #1537905), uma empresa de construção civil baseada em Sarasota, FL. O projeto migra quotes e line items do **Jobber** (sistema antigo) para o **JobTread** (sistema novo) via API, eliminando a necessidade de entrada manual de dados.
