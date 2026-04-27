@@ -139,11 +139,20 @@ Pergunte exatamente uma coisa por vez. Não agrupe perguntas. Avance só quando 
    - **Sempre confirmar com o usuário** antes de prosseguir, mesmo se o match parecer óbvio. Frase padrão: *"Encontrei N possível(is) match(es) — é algum desses ou é cliente novo?"*
 
    **Decisões:**
-   - **Se match confirmado:** guardar `account_id`, `location_id`, `contact_id` da escolha do usuário. Pular o passo 5 (endereço) se for usar location existente.
+   - **Se match confirmado:** guardar `account_id` e `contact_id` da escolha do usuário. Ir para o passo 5 para decidir a location.
    - **Se nenhum match** ou usuário disser que é cliente novo: continuar com passo 5.
-   - **Se múltiplas locations** no account existente: perguntar qual usar (ou criar nova).
 
-5. **Endereço da obra** (rua, cidade, estado, zip — pular se cliente existe e for usar location existente)
+5. **Location da obra** (sempre perguntar, mesmo para cliente existente)
+
+   - **Se cliente novo:** pedir o endereço completo (rua, cidade, estado, zip) — uma nova location será criada na FASE 3.
+   - **Se cliente existente:** listar as locations já cadastradas e perguntar:
+     > "O trabalho é em qual endereço?
+     > 1. [endereço A] (location existente)
+     > 2. [endereço B] (location existente)
+     > 3. Novo endereço — me passa rua, cidade, estado, zip"
+
+     - Se escolher uma location existente → guardar o `location_id` e pular para passo 6.
+     - Se for endereço novo → coletar o endereço completo. Na FASE 3, **criar nova location sob o `account_id` existente** (não criar account novo). Reusar `account_id` e `contact_id` do cliente.
 6. **Tipo** — mostrar como lista numerada:
    ```
    1. Commercial
@@ -241,18 +250,22 @@ from config import JT_ORG_ID, JT_COST_TYPES, JT_COST_CODES
 
 client = JobTreadClient()
 
-# === BLOCO PARA CLIENTE NOVO ===
-# Pular este bloco inteiro se cliente já foi encontrado na FASE 1 passo 2 —
-# nesse caso, ir direto para "Atualizar account" / "Criar job".
+# Três cenários determinados pela FASE 1:
+#   (A) Cliente NOVO                     → criar account + location + contact
+#   (B) Cliente EXISTENTE + location existente → reusar tudo, só criar job
+#   (C) Cliente EXISTENTE + location NOVA      → reusar account/contact, criar SÓ location nova
 
-# 1. Criar account (cliente)
+# === CENÁRIO A — CLIENTE NOVO ===
+# Executar somente se a FASE 1 não encontrou match.
+
+# A.1. Criar account (cliente)
 client.pave({"createAccount": {"$": {
     "organizationId": JT_ORG_ID,
     "name": "[NOME_CLIENTE]",
     "type": "customer",
 }}})
 
-# 2. Buscar account_id
+# A.2. Buscar account_id
 data = client.pave({"organization": {"$": {"id": JT_ORG_ID},
     "accounts": {"$": {"size": 100},
         "nodes": {"id": {}, "name": {}},
@@ -262,14 +275,14 @@ data = client.pave({"organization": {"$": {"id": JT_ORG_ID},
 account_id = [a["id"] for a in data["organization"]["accounts"]["nodes"]
               if a["name"] == "[NOME_CLIENTE]"][0]
 
-# 3. Criar location
+# A.3. Criar location (a primeira do cliente novo)
 client.pave({"createLocation": {"$": {
     "accountId": account_id,
     "name": "[ENDERECO_COMPLETO]",
     "address": "[ENDERECO_COMPLETO]",
 }}})
 
-# 4. Buscar location_id
+# A.4. Buscar location_id
 data2 = client.pave({"account": {"$": {"id": account_id},
     "locations": {"$": {"size": 10},
         "nodes": {"id": {}, "name": {}}
@@ -277,7 +290,7 @@ data2 = client.pave({"account": {"$": {"id": account_id},
 }})
 location_id = data2["account"]["locations"]["nodes"][0]["id"]
 
-# 5. Criar contact (phone + email)
+# A.5. Criar contact (phone + email)
 PHONE_FIELD = "22PTSCqdgBQF"
 EMAIL_FIELD = "22PTSCqdTUsJ"
 client.pave({"createContact": {"$": {
@@ -289,10 +302,29 @@ client.pave({"createContact": {"$": {
     }
 }}})
 
-# === FIM DO BLOCO PARA CLIENTE NOVO ===
-# Para cliente existente: account_id, location_id e contact_id já vêm da FASE 1.
-# Se houver mais de uma location e o trabalho for em endereço diferente, perguntar
-# ao usuário qual location usar (ou se deve criar uma nova).
+# === CENÁRIO C — CLIENTE EXISTENTE + LOCATION NOVA ===
+# Executar somente se cliente já existe MAS o trabalho é em endereço novo.
+# account_id e contact_id já vêm da FASE 1. NÃO criar account nem contact.
+
+# C.1. Criar location nova sob a account existente
+client.pave({"createLocation": {"$": {
+    "accountId": account_id,                  # já existe
+    "name": "[NOVO_ENDERECO_COMPLETO]",
+    "address": "[NOVO_ENDERECO_COMPLETO]",
+}}})
+
+# C.2. Buscar a location recém-criada (mais recente / não estava na lista anterior)
+data_loc = client.pave({"account": {"$": {"id": account_id},
+    "locations": {"$": {"size": 50},
+        "nodes": {"id": {}, "name": {}, "createdAt": {}}
+    }
+}})
+locations_sorted = sorted(data_loc["account"]["locations"]["nodes"],
+                          key=lambda l: l.get("createdAt") or "", reverse=True)
+location_id = locations_sorted[0]["id"]
+
+# === CENÁRIO B — CLIENTE EXISTENTE + LOCATION EXISTENTE ===
+# account_id, location_id e contact_id já vêm da FASE 1. Pular direto para "Atualizar account".
 
 # 6. Atualizar account (Type + Needs)
 TYPE_FIELD = "22PTsXZ3ZAd6"
