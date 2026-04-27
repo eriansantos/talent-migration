@@ -79,16 +79,40 @@ Pergunte exatamente uma coisa por vez. Não agrupe perguntas. Avance só quando 
 ### Sequência obrigatória
 
 1. **Nome do cliente**
-2. **Telefone**
-3. **Email**
-4. **Endereço da obra** (rua, cidade, estado, zip)
-5. **Tipo** — mostrar como lista numerada:
+2. **Pesquisar cliente no JobTread** (OBRIGATÓRIO, antes de pedir telefone/email/endereço)
+
+   Após receber o nome, **sempre** buscar matches no JobTread antes de cadastrar — evita duplicar accounts. Usar busca por substring (case-insensitive) sobre nome e sobrenome:
+
+   ```python
+   data = client.pave({'organization': {'$': {'id': JT_ORG_ID},
+       'accounts': {'$': {'size': 100},
+           'nodes': {'id': {}, 'name': {}},
+           'nextPage': {}
+       }
+   }})
+   terms = [t.lower() for t in NOME_DO_CLIENTE.split() if len(t) > 2]
+   matches = [a for a in data['organization']['accounts']['nodes']
+              if any(t in a['name'].lower() for t in terms)]
+   ```
+
+   **Importante:** se houver paginação (`nextPage` retornado), continuar buscando até cobrir todos os accounts.
+
+   Apresentar matches ao usuário para confirmação. Para cada match candidato, buscar e mostrar `name`, `locations.nodes` (endereço) e `contacts.nodes` (telefone/email) para o usuário comparar.
+
+   - **Se match confirmado:** guardar `account_id`, `location_id`, `contact_id` e **pular** os passos 3–5 (telefone/email/endereço). Ir direto para o passo 6.
+   - **Se nenhum match** ou usuário disser que é cliente novo: continuar com passos 3–5.
+   - **Se o usuário fornecer um account ID diretamente** (ex: "é esse id 22PWA..."): buscar pelo ID e confirmar nome/endereço, pular para passo 6.
+
+3. **Telefone** (pular se cliente já existe)
+4. **Email** (pular se cliente já existe)
+5. **Endereço da obra** (rua, cidade, estado, zip — pular se cliente já existe e usar a location existente)
+6. **Tipo** — mostrar como lista numerada:
    ```
    1. Commercial
    2. Residential
    3. Other
    ```
-6. **Needs** — mostrar como lista (múltipla escolha, ex: "7, 8"):
+7. **Needs** — mostrar como lista (múltipla escolha, ex: "7, 8"):
    ```
    1. New Build
    2. Addition
@@ -99,10 +123,10 @@ Pergunte exatamente uma coisa por vez. Não agrupe perguntas. Avance só quando 
    7. Painting
    8. Repair
    ```
-7. **Descrição do escopo** — texto livre, o que precisa ser feito
-8. **Perguntas de follow-up** sobre dimensões/quantidades conforme o escopo (SF, LF, EA, etc.)
+8. **Descrição do escopo** — texto livre, o que precisa ser feito
+9. **Perguntas de follow-up** sobre dimensões/quantidades conforme o escopo (SF, LF, EA, etc.)
 
-**Regra de follow-up (passo 8):** Só faça perguntas se forem necessárias para precificar. Ex:
+**Regra de follow-up (passo 9):** Só faça perguntas se forem necessárias para precificar. Ex:
 - Pintura → perguntar SF de parede ou confirmar "interior only"?
 - Tile → perguntar SF da área
 - Drywall → perguntar SF
@@ -179,6 +203,10 @@ from config import JT_ORG_ID, JT_COST_TYPES, JT_COST_CODES
 
 client = JobTreadClient()
 
+# === BLOCO PARA CLIENTE NOVO ===
+# Pular este bloco inteiro se cliente já foi encontrado na FASE 1 passo 2 —
+# nesse caso, ir direto para "Atualizar account" / "Criar job".
+
 # 1. Criar account (cliente)
 client.pave({"createAccount": {"$": {
     "organizationId": JT_ORG_ID,
@@ -222,6 +250,11 @@ client.pave({"createContact": {"$": {
         EMAIL_FIELD: "[EMAIL]",
     }
 }}})
+
+# === FIM DO BLOCO PARA CLIENTE NOVO ===
+# Para cliente existente: account_id, location_id e contact_id já vêm da FASE 1.
+# Se houver mais de uma location e o trabalho for em endereço diferente, perguntar
+# ao usuário qual location usar (ou se deve criar uma nova).
 
 # 6. Atualizar account (Type + Needs)
 TYPE_FIELD = "22PTsXZ3ZAd6"
