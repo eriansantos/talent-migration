@@ -79,3 +79,30 @@ Mesmo usando LS no JobTread, a proposta ao cliente deve mostrar:
 - Descrição livre do trabalho
 - Dimensões quando relevante (LF, SF, EA)
 - Localização (Sarasota, Bradenton, Venice, etc.)
+
+## Cliente já existente no JobTread
+
+Quando o usuário disser que o cliente já está no sistema, **pedir o account ID** em vez de seguir o intake completo. Buscar via API: `account(id=...)` retorna `name`, `locations.nodes`, `contacts.nodes`. Se confirmar, **pular** criação de account/location/contact e ir direto para o job.
+
+Se o usuário não tiver o ID, fazer busca por nome com `organization.accounts` e listar matches para confirmar.
+
+**Why:** Evita duplicar accounts e economiza várias perguntas do intake.
+
+## Transcrição de orçamento externo (ChatGPT, planilha, PDF)
+
+Quando o usuário trouxer quote pré-pronto de outra fonte:
+
+1. Validar a aritmética antes de propor — orçamentos do ChatGPT frequentemente têm subtotais que não fecham com os itens detalhados (ex: ao "distribuir OH&P" os itens individuais inflacionam mas o subtotal mostrado fica desatualizado).
+2. Apontar inconsistências numéricas explicitamente e perguntar qual versão usar.
+3. **Oferecer duas estruturas** antes de criar:
+   - **Detalhada** (item-a-item, com qty/unit/unit price reais)
+   - **Resumida LS** (1 line item por escopo, descrição longa)
+4. Se a soma dos subtotais não fechar com o "Recommended Proposal Price", perguntar ao usuário como tratar a diferença (linha de allowance, distribuir, ou eliminar).
+
+**Why:** O padrão real Talent é LS resumido (memory acima), mas em transcrições o usuário às vezes quer preservar o detalhamento original. Perguntar antes evita retrabalho — já aconteceu de criar 17 itens detalhados e depois ter que apagar e refazer com 5 LS.
+
+## Confirmação obrigatória antes de operações destrutivas
+
+Antes de **deletar, sobrescrever ou recriar** cost items que já existem em um job, pedir confirmação explícita ao usuário. Exemplo: se o usuário pedir "cria os itens de novo resumido", perguntar se é para **substituir** (apagar os atuais) ou **adicionar alongside**.
+
+**Why:** Cost items em produção podem ter sido editados/aprovados por terceiros. A reversão é manual e custosa.
